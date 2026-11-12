@@ -33,8 +33,10 @@ model = joblib.load(os.path.join(DATA_DIR, "ambrosia_risk_model_v2.joblib"))
 with open(os.path.join(DATA_DIR, "model_v2_meta.json"), "r", encoding="utf-8") as f:
     META = json.load(f)
 FEATURES = META["features"]
+SEASON_FIRST, SEASON_LAST = META["season_months"]
 T_MEDIUM = META["threshold_medium"]
 T_HIGH = META["threshold_high"]
+
 
 with open(os.path.join(DATA_DIR, "risk_map_v2.geojson"), "r", encoding="utf-8") as f:
     RISK_MAP = json.load(f)
@@ -131,7 +133,7 @@ def fetch_climate(lat_rounded, lon_rounded):
     daily = pd.DataFrame(data["daily"])
     daily["time"] = pd.to_datetime(daily["time"])
     daily["month"] = daily["time"].dt.month
-    season = daily[(daily["month"] >= 5) & (daily["month"] <= 9)]
+    season = daily[(daily["month"] >= SEASON_FIRST) & (daily["month"] <= SEASON_LAST)]
 
     climate = {
         "temp_mean": float(season["temperature_2m_mean"].mean()),
@@ -305,13 +307,12 @@ def build_prompt(lang, lat, lon, place_name, risk_percent, percentile, category,
             f"- Suitability index: {risk_percent}% (category: {LEVEL_LABEL['en'].get(category, 'unknown')})\n"
             f"- Share of cropland: {pct(land.get('cropland'), 'unknown')}%\n"
             f"- Share of built-up land: {pct(land.get('built'), 'unknown')}%\n"
-            f"- Mean May-September temperature: {num(climate.get('temp_mean'), 1, 'unknown')} °C\n"
+            f"- Mean April-October temperature: {num(climate.get('temp_mean'), 1, 'unknown')} °C\n"
             f"- Mean precipitation: {num(climate.get('precip_sum'), 1, 'unknown')} mm/day\n\n"
             "FACTS (guidance of the State Service of Ukraine on Food Safety and Consumer "
             "Protection). Use only these, invent nothing:\n"
             "- flowering runs from July to October; seeds ripen in August-October;\n"
-            "- control must happen before flowering and seed formation must be prevented; mowing "
-            "DURING flowering promotes the release of pollen;\n"
+            "- control must happen before flowering and seed formation must be prevented;\n"
             "- hotspots are most often roadsides, vacant lots, construction sites, abandoned or "
             "uncultivated land, company grounds and farmland;\n"
             "- for the public (yards, vacant lots): mowing several times per season before "
@@ -367,13 +368,12 @@ def build_prompt(lang, lat, lon, place_name, risk_percent, percentile, category,
         f"- Індекс придатності: {dec(risk_percent, 'uk')}% (категорія: {LEVEL_LABEL['uk'].get(category, 'невідома')})\n"
         f"- Частка ріллі: {pct(land.get('cropland'))}%\n"
         f"- Частка забудови: {pct(land.get('built'))}%\n"
-        f"- Середня температура травня-вересня: {dec(num(climate.get('temp_mean')), 'uk')} °C\n"
+        f"- Середня температура квітня-жовтня: {dec(num(climate.get('temp_mean')), 'uk')} °C\n"
         f"- Середні опади: {dec(num(climate.get('precip_sum')), 'uk')} мм/день\n\n"
         "ФАКТИ (рекомендації Держпродспоживслужби України). Користуйся лише ними, нічого не "
         "вигадуй:\n"
         "- цвітіння триває з липня до жовтня, насіння дозріває в серпні-жовтні;\n"
-        "- боротьбу слід вести до початку цвітіння й не допускати утворення насіння; скошування "
-        "ПІД ЧАС цвітіння сприяє викиду пилку;\n"
+        "- боротьбу слід вести до початку цвітіння й не допускати утворення насіння;\n"
         "- осередки найчастіше на узбіччях, пустирях, будмайданчиках, покинутих і необроблюваних "
         "ділянках, територіях підприємств і в сільгоспугіддях;\n"
         "- для населення (присадибні ділянки, двори, пустирі): скошування кілька разів за сезон "
