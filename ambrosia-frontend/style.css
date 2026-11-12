@@ -53,9 +53,8 @@ body {
 }
 
 .hero {
-  text-align: center;
-  padding: 4rem 1.5rem;
-  background: linear-gradient(135deg, var(--green-light), #fff);
+  background: #e8f5e9;
+  border-bottom: 1px solid #c8e6c9;
 }
 .hero h1 { font-size: 2rem; max-width: 800px; margin: 0 auto 1rem; color: var(--green-dark); }
 .hero p { max-width: 650px; margin: 0 auto 1.5rem; color: #444; }
