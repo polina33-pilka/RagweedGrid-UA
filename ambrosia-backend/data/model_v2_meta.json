@@ -6,8 +6,16 @@
     "cropland",
     "built"
   ],
-  "threshold_medium": 0.4275502938865122,
-  "threshold_high": 0.584527188749835,
-  "cv_auc_regions": 0.696,
+  "threshold_medium": 0.4329867870801313,
+  "threshold_high": 0.5593678567417292,
+  "cv_auc_regions": 0.661,
+  "cv_auc_regions_std": 0.047,
+  "season_months": [
+    4,
+    10
+  ],
+  "grid_step_deg": 0.2,
+  "climate_file": "full_grid_climate_data_v3.csv",
+  "interpolated_share": 0.0,
   "sklearn_version": "1.5.1"
 }
