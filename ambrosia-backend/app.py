@@ -21,7 +21,11 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-lite")
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 GEMINI_TIMEOUT = 20
-GEMINI_ATTEMPTS = 2
+GEMINI_ATTEMPTS = 3
+
+# Слова, яких не має бути в поясненні від ШІ (індекс не є ймовірністю,
+# умови не оцінюємо як «комфортні»). Якщо трапилось, відповідь відхиляється.
+BANNED_WORDS = ("імовір", "ймовір", "вірогідн", "комфорт", "probab", "likelihood", "comfortable")
 
 FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "*")
 
@@ -328,9 +332,13 @@ def build_prompt(lang, lat, lon, place_name, risk_percent, percentile, category,
             '{"reason": "...", "actions": ["...", "...", "...", "..."]}\n\n'
             "RULES:\n"
             "- reason: ONE sentence naming which factor (cropland, built-up share, temperature or "
-            "precipitation) most likely influenced this index. Do not claim the conditions "
+            "precipitation) mainly influenced this index. Do not claim the conditions "
             "definitely promote or hold back the plant. No introductory phrases, no childish "
             "wording, no heavy bureaucratic words, no comparison with other regions.\n"
+            "- Never use the words probability, probable or likely about the index or anything "
+            "else. Do not call the temperature or precipitation comfortable or favourable, and "
+            "do not say that something 'creates conditions'. Use cautious wording such as "
+            "'may be linked to' or 'reflects'.\n"
             "- actions: you MUST ALWAYS generate all four, at EVERY index level including lower, "
             "never skip or leave one empty. One short concrete sentence each (up to 25 words), for: "
             f"1) {titles[0]}; 2) {titles[1]}; 3) {titles[2]}; 4) {titles[3]}.\n"
@@ -390,9 +398,12 @@ def build_prompt(lang, lat, lon, place_name, risk_percent, percentile, category,
         '{"reason": "...", "actions": ["...", "...", "...", "..."]}\n\n'
         "ПРАВИЛА:\n"
         "- reason: ОДНЕ речення про те, який фактор (рілля, забудова, температура чи опади) "
-        "найімовірніше вплинув на цей індекс. Не стверджуй, що умови точно сприяють рослині чи "
+        "найбільше вплинув на цей індекс. Не стверджуй, що умови точно сприяють рослині чи "
         "стримують її. Без вступних фраз («Простими словами:»), без дитячих зворотів, без важкої "
         "канцелярії («експансія», «вегетаційний період»), без порівнянь з іншими регіонами.\n"
+        "- Не вживай слів «імовірність», «імовірний», «ймовірність» щодо індексу чи будь-чого "
+        "іншого. Не називай температуру чи опади комфортними або сприятливими й не пиши, що "
+        "щось «створює умови». Пиши обережно: «може бути пов'язано з», «відображає».\n"
         "- actions: ти ЗОБОВ'ЯЗАНИЙ ЗАВЖДИ згенерувати всі чотири пункти, за БУДЬ-ЯКОГО рівня "
         "індексу, зокрема нижчого, і ніколи не пропускати та не залишати порожніх. По одному "
         f"короткому конкретному реченню (до 25 слів), для: 1) {titles[0]}; 2) {titles[1]}; "
@@ -428,6 +439,9 @@ def parse_llm_json(text, lang):
     actions = [str(a).strip() for a in data["actions"]]
     if not reason or len(actions) != 4 or not all(actions):
         raise ValueError("unexpected structure")
+    joined = (reason + " " + " ".join(actions)).lower()
+    if any(b in joined for b in BANNED_WORDS):
+        raise ValueError("banned wording in explanation")
     titles = [g["title"] for g in TIP_GROUPS[lang]]
     groups = [{"title": t, "items": [a]} for t, a in zip(titles, actions)]
     return reason, groups
