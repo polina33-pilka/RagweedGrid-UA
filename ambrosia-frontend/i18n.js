@@ -142,30 +142,3 @@ const TRANSLATIONS = {
     searching: "Searching..."
   }
 };
-
-let currentLang = localStorage.getItem("lang") || "uk";
-
-function applyTranslations() {
-  const dict = TRANSLATIONS[currentLang];
-  document.querySelectorAll("[data-i18n]").forEach(el => {
-    const key = el.getAttribute("data-i18n");
-    if (dict[key]) el.textContent = dict[key];
-  });
-  document.querySelectorAll("[data-i18n-placeholder]").forEach(el => {
-    const key = el.getAttribute("data-i18n-placeholder");
-    if (dict[key]) el.placeholder = dict[key];
-  });
-  if (dict.page_title) document.title = dict.page_title;
-  document.documentElement.lang = currentLang;
-}
-
-function toggleLang() {
-  currentLang = currentLang === "uk" ? "en" : "uk";
-  localStorage.setItem("lang", currentLang);
-  applyTranslations();
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  applyTranslations();
-  document.getElementById("lang-toggle").addEventListener("click", toggleLang);
-});
