@@ -6,10 +6,10 @@
     "cropland",
     "built"
   ],
-  "threshold_medium": 0.4329867870801313,
-  "threshold_high": 0.5593678567417292,
-  "cv_auc_regions": 0.661,
-  "cv_auc_regions_std": 0.047,
+  "threshold_medium": 0.4260151083818965,
+  "threshold_high": 0.5721442806025366,
+  "cv_auc_regions": 0.689,
+  "cv_auc_regions_std": 0.046,
   "season_months": [
     4,
     10
