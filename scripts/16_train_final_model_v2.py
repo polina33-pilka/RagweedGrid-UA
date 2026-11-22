@@ -6,8 +6,9 @@ import pandas as pd
 import sklearn
 from sklearn.model_selection import GroupKFold, cross_val_score
 
-from common import CLIMATE, LAND, make_rf, spatial_blocks
+from climate_fetch import SEASON_FIRST_MONTH, SEASON_LAST_MONTH
 from ukraine_border import in_ukraine
+from common import CLIMATE, LAND, make_rf, spatial_blocks
 
 FEATURES = CLIMATE + LAND
 Q_MEDIUM, Q_HIGH = 0.50, 0.80
@@ -74,6 +75,11 @@ meta = {
     "threshold_medium": t_medium,
     "threshold_high": t_high,
     "cv_auc_regions": round(float(cv_auc.mean()), 3),
+    "cv_auc_regions_std": round(float(cv_auc.std()), 3),
+    "season_months": [SEASON_FIRST_MONTH, SEASON_LAST_MONTH],
+    "grid_step_deg": 0.2,
+    "climate_file": "full_grid_climate_data_v3.csv",
+    "interpolated_share": 0.0,
     "sklearn_version": sklearn.__version__,
 }
 with open(OUT_DIR + "model_v2_meta.json", "w", encoding="utf-8") as f:
