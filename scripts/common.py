@@ -20,11 +20,13 @@ PLANT_COLUMNS = ["decimalLatitude", "decimalLongitude", "coordinateUncertaintyIn
 def load_plants(path):
     header = pd.read_csv(path, sep="\t", nrows=0, quoting=csv.QUOTE_NONE).columns
     missing = [c for c in PLANT_COLUMNS if c not in header]
-    if missing:
-        raise SystemExit(f"У файлі рослин немає колонок: {missing}")
-
-    plants = pd.read_csv(path, sep="\t", usecols=PLANT_COLUMNS, quoting=csv.QUOTE_NONE,
-                         on_bad_lines="skip", low_memory=False)
+    if "genus" not in header:
+        raise SystemExit("У файлі рослин немає колонки genus")
+    plants = pd.read_csv(path, sep="\t", usecols=sorted(set(PLANT_COLUMNS) | {"genus"}),
+                         quoting=csv.QUOTE_NONE, on_bad_lines="skip", low_memory=False)
+    is_ambrosia = plants["genus"].astype(str).str.contains("Ambrosia", case=False, na=False)
+    print(f"load_plants: виключено записів Ambrosia: {is_ambrosia.sum()} з {len(plants)}")
+    plants = plants[~is_ambrosia].drop(columns="genus")
     plants = plants.apply(pd.to_numeric, errors="coerce")
 
     plants = plants.dropna(subset=["decimalLatitude", "decimalLongitude", "year", "month", "day"])
