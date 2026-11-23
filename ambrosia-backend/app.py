@@ -9,7 +9,7 @@ import pandas as pd
 import requests
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from ukraine_border import in_ukraine  # скопіюй ukraine_border.py поруч з app.py
+from ukraine_border import in_ukraine  # скопіюй ukraine_border.py поруч з app.pу
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
