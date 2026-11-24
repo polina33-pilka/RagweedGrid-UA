@@ -6,9 +6,9 @@ from sklearn.ensemble import RandomForestClassifier
 
 SEED = 42
 YEAR_FROM, YEAR_TO = 2015, 2024
-MAX_UNCERTAINTY_M = 5000
-BLOCK_SIZE = 2.0
-LAT0 = 48.5
+MAX_UNCERTAINTY_M = 5000  # точки з більшою похибкою координат відкидаємо
+BLOCK_SIZE = 2.0  # розмір просторового блоку в градусах
+LAT0 = 48.5  # середня широта України, для переведення градусів у км
 
 CLIMATE = ["temp_mean", "precip_sum", "humidity_mean"]
 LAND = ["cropland", "built"]
@@ -18,12 +18,14 @@ PLANT_COLUMNS = ["decimalLatitude", "decimalLongitude", "coordinateUncertaintyIn
 
 
 def load_plants(path):
+    # спочатку читаємо тільки заголовок, щоб не тягнути весь файл дарма
     header = pd.read_csv(path, sep="\t", nrows=0, quoting=csv.QUOTE_NONE).columns
     missing = [c for c in PLANT_COLUMNS if c not in header]
     if "genus" not in header:
         raise SystemExit("У файлі рослин немає колонки genus")
     plants = pd.read_csv(path, sep="\t", usecols=sorted(set(PLANT_COLUMNS) | {"genus"}),
                          quoting=csv.QUOTE_NONE, on_bad_lines="skip", low_memory=False)
+    # Ambrosia прибираємо, це "фонові" точки, а не знахідки амброзії
     is_ambrosia = plants["genus"].astype(str).str.contains("Ambrosia", case=False, na=False)
     print(f"load_plants: виключено записів Ambrosia: {is_ambrosia.sum()} з {len(plants)}")
     plants = plants[~is_ambrosia].drop(columns="genus")
@@ -32,8 +34,10 @@ def load_plants(path):
     plants = plants.dropna(subset=["decimalLatitude", "decimalLongitude", "year", "month", "day"])
     plants = plants[plants["year"].between(YEAR_FROM, YEAR_TO)]
     uncertainty = plants["coordinateUncertaintyInMeters"]
+    # якщо похибки немає взагалі, запис лишаємо
     plants = plants[uncertainty.isna() | (uncertainty <= MAX_UNCERTAINTY_M)]
 
+    # один і той самий візит в одне місце рахуємо один раз
     same_visit = pd.DataFrame({
         "lat": plants["decimalLatitude"].round(4),
         "lon": plants["decimalLongitude"].round(4),
@@ -63,6 +67,7 @@ def to_km(lat, lon):
 
 
 def convex_hull(points):
+    # алгоритм Ендрю (monotone chain)
     points = sorted(set(map(tuple, points)))
     if len(points) <= 2:
         return points
@@ -84,11 +89,13 @@ def convex_hull(points):
 
 
 def scale_polygon(polygon, factor):
+    # розтягуємо/стискаємо відносно центру
     center = polygon.mean(axis=0)
     return center + (polygon - center) * factor
 
 
 def point_in_polygon(x, y, polygon):
+    # ray casting
     result = False
     j = len(polygon) - 1
     for i, (xi, yi) in enumerate(polygon):
