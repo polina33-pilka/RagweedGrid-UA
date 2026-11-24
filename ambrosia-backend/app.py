@@ -9,7 +9,7 @@ import pandas as pd
 import requests
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from ukraine_border import in_ukraine  # скопіюй ukraine_border.py поруч з app.pу
+from ukraine_border import in_ukraine  
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
@@ -24,8 +24,9 @@ GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_M
 GEMINI_TIMEOUT = 20
 GEMINI_ATTEMPTS = 3
 
-# Слова, яких не має бути в поясненні від ШІ (індекс не є ймовірністю,
-# умови не оцінюємо як «комфортні»). Якщо трапилось, відповідь відхиляється.
+# Слова, які модель постійно використовувала у відповіді, хоча не треба
+# (індекс не ймовірність, "комфортні умови" теж не пишемо).
+# Якщо трапилося, то відповідь відхиляється
 BANNED_WORDS = (
     "імовір", "ймовір", "вірогідн", "комфорт", "probab", "likelihood", "comfortable",
     "лікар", "ліки", "лікув", "гербіцид", "дозуван", "антигістамін",
@@ -49,8 +50,10 @@ T_HIGH = META["threshold_high"]
 
 with open(os.path.join(DATA_DIR, "risk_map_v2.geojson"), "r", encoding="utf-8") as f:
     RISK_MAP = json.load(f)
+# відсортовані значення з карти, потрібні для перцентиля
 MAP_RISKS = np.sort(np.array([ft["properties"]["risk_percent"] for ft in RISK_MAP["features"]]))
 
+# ключ це координати * 10 (крок сітки 0.1 градуса)
 _land = pd.read_csv(os.path.join(DATA_DIR, "landcover_lookup.csv"))
 LAND = {
     (int(r.lat10), int(r.lon10)): (float(r.cropland), float(r.built))
@@ -61,7 +64,7 @@ GRID_CLIMATE = pd.read_csv(os.path.join(DATA_DIR, "full_grid_climate_data_v3.csv
 GRID_LAT = GRID_CLIMATE["lat_grid"].to_numpy()
 GRID_LON = GRID_CLIMATE["lon_grid"].to_numpy()
 
-# Запасні поради (показуються, лише якщо ШІ не відповів)
+# Запасні поради, показуємо тільки якщо Gemini не відповів
 TIP_GROUPS = {
     "uk": [
         {"title": "Комунальним службам та ОТГ", "items": [
@@ -100,6 +103,8 @@ CLOSING = {
 
 
 def nearest_grid_climate(lat, lon, max_deg=0.3):
+    # шукаємо найближчу точку сітки, довготу множимо на cos(lat),
+    # інакше на півночі відстані завищені
     d = np.hypot(GRID_LAT - lat, (GRID_LON - lon) * np.cos(np.radians(lat)))
     i = int(d.argmin())
     if d[i] > max_deg:
@@ -122,7 +127,7 @@ def categorize(p):
 
 def percentile_on_map(risk_percent):
     p = np.searchsorted(MAP_RISKS, risk_percent, side="left") / len(MAP_RISKS) * 100
-    return int(min(99, max(1, round(p))))
+    return int(min(99, max(1, round(p))))  # 0 і 100 не показуємо
 
 
 @lru_cache(maxsize=2048)
@@ -142,6 +147,7 @@ def fetch_climate(lat_rounded, lon_rounded):
     daily = pd.DataFrame(data["daily"])
     daily["time"] = pd.to_datetime(daily["time"])
     daily["month"] = daily["time"].dt.month
+    # беремо тільки місяці сезону, як при навчанні моделі
     season = daily[(daily["month"] >= SEASON_FIRST) & (daily["month"] <= SEASON_LAST)]
 
     climate = {
@@ -194,6 +200,7 @@ def predict():
     try:
         climate = fetch_climate(round(lat10 / 10, 1), round(lon10 / 10, 1))
     except Exception as e:
+        # Open-Meteo інколи лягає або віддає ліміт, тому є запасний варіант з сітки
         print(f"climate fallback: {e}")
         climate = nearest_grid_climate(lat, lon)
         source = "grid"
@@ -219,6 +226,8 @@ def predict():
         "land": {"cropland": round(land[0], 3), "built": round(land[1], 3)},
     })
 
+
+#пояснення від ШІ
 
 def dec(value, lang):
     text = str(value)
@@ -449,6 +458,7 @@ def build_prompt(lang, lat, lon, place_name, risk_percent, percentile, category,
 
 def parse_llm_json(text, lang):
     text = text.strip()
+    # Gemini іноді все одно загортає JSON у ```json
     if text.startswith("```"):
         text = text.strip("`").strip()
         if text.lower().startswith("json"):
@@ -510,6 +520,7 @@ def explain():
                 timeout=GEMINI_TIMEOUT,
             )
             if resp.status_code == 503:
+                # модель перевантажена, чекаємо і пробуємо ще раз
                 last_error = "503: " + resp.text[:300]
                 time.sleep(2 * (attempt + 1))
                 continue
@@ -540,4 +551,4 @@ def explain():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=port, debug=True)  # debug вимкнути перед деплоєм
