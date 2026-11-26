@@ -4,13 +4,13 @@ const OPEN_METEO_GEO_URL = "https://geocoding-api.open-meteo.com/v1/search";
 
 const COLORS = { low: "#4caf50", medium: "#ff9800", high: "#e53935" };
 
-# сусіди України, щоб відсікати кліки за кордоном ще до запиту на сервер
+// сусіди України, щоб відсікати кліки за кордоном ще до запиту на сервер
 const FOREIGN_COUNTRIES = ["ro", "md", "pl", "sk", "hu", "by", "ru"];
 
-# через скільки мс показуємо "сервер прокидається"
+// через скільки мс показуємо "сервер прокидається"
 const WAKE_HINT_MS = 5000;
 
-# області шукати як населені пункти не треба, тому прибираємо їх одразу
+// області шукати як населені пункти не треба, тому ловимо їх одразу
 const REGION_NAMES = [
   "вінницька", "волинська", "луганська", "дніпропетровська", "донецька",
   "житомирська", "закарпатська", "запорізька", "івано-франківська", "київська",
@@ -30,7 +30,7 @@ const MAP_BOUNDS = [[43.0, 20.5], [53.5, 42.0]];
 const UKRAINE_VIEW = [[44.2, 22.0], [52.5, 40.4]];
 const BORDER_TOLERANCE = 0.07;
 
-# той самий полігон, що й у ukraine_border.py на бекенді
+// той самий полігон, що й у ukraine_border.py на бекенді
 const UKRAINE_POLYGON = [
   [31.785998, 52.101678], [32.159412, 52.061267], [32.412058, 52.288695], [32.715761, 52.238465],
   [33.7527, 52.335075], [34.391731, 51.768882], [34.141978, 51.566413], [34.224816, 51.255993],
@@ -62,7 +62,7 @@ const UKRAINE_POLYGON = [
 let map;
 let selectedMarker = null;
 let lastResult = null;
-# лічильники потрібні, щоб відкидати відповіді на запити, які вже застаріли
+// лічильники потрібні, щоб відкидати відповіді на запити, які вже застаріли
 let requestCounter = 0;
 let explainCache = {};
 let explainRequestId = 0;
@@ -109,8 +109,8 @@ function clearPlaceResults() {
   list.classList.add("hidden");
 }
 
-# транслітерація для англійської версії
-# (масив це варіанти на початку слова і всередині)
+// транслітерація для англійської версії
+// (масив це варіанти на початку слова і всередині)
 const TRANSLIT = {
   а: "a", б: "b", в: "v", г: "h", ґ: "g", д: "d", е: "e", є: ["ye", "ie"],
   ж: "zh", з: "z", и: "y", і: "i", ї: ["yi", "i"], й: ["y", "i"], к: "k",
@@ -136,6 +136,7 @@ function translitWord(word) {
   for (let i = 0; i < word.length; i++) {
     const ch = word[i];
     const lower = ch.toLowerCase();
+    // апострофи просто пропускаємо
     if (lower === "'" || lower === "’" || lower === "ʼ") continue;
 
     let rep = TRANSLIT[lower];
@@ -171,7 +172,7 @@ function distToSegment(px, py, ax, ay, bx, by) {
   return Math.hypot(px - (ax + k * dx), py - (ay + k * dy));
 }
 
-# те саме, що in_ukraine() на бекенді, всередині полігона або майже на кордоні
+// те саме, що in_ukraine() на бекенді, всередині полігона або майже на кордоні
 function isInsideUkraine(lat, lon) {
   const n = UKRAINE_POLYGON.length;
   let inside = false;
@@ -195,7 +196,7 @@ function initMap() {
     maxBoundsViscosity: 0.8,
   });
   map.fitBounds(UKRAINE_VIEW, { padding: [8, 8] });
-  # окремий pane, щоб синя позначка була над точками карти
+  // окремий pane, щоб синя позначка була над точками карти
   map.createPane("selectedPane");
   map.getPane("selectedPane").style.zIndex = 650;
 
@@ -515,7 +516,7 @@ function showPlaceList(results) {
   list.classList.remove("hidden");
 }
 
-# зливаємо два геокодери: спочатку Nominatim, з Open-Meteo беремо те, чого там нема
+// зливаємо два геокодери: спочатку Nominatim, з Open-Meteo беремо те, чого там нема
 function mergeResults(primary, secondary) {
   const merged = [];
   const hasLabel = r =>
@@ -635,7 +636,7 @@ async function handleExplain() {
   const lang = currentLang;
   const snapshot = lastResult;
 
-  # якщо вже пояснювали цю точку цією мовою, другий раз Gemini не смикаємо
+  // якщо вже пояснювали цю точку цією мовою, другий раз Gemini не смикаємо
   const cached = explainCache[lang];
   if (cached) {
     renderExplanation(cached);
@@ -665,7 +666,7 @@ async function handleExplain() {
       explainText.textContent = apiErrorMessage(data);
       return;
     }
-    # шаблонний текст у кеш не кладемо, щоб наступного разу спробувати ШІ ще раз
+    // шаблонний текст у кеш не кладемо, щоб наступного разу спробувати ШІ ще раз
     if (!data.fallback) explainCache[lang] = data;
     renderExplanation(data);
   } catch (err) {
@@ -676,7 +677,7 @@ async function handleExplain() {
   }
 }
 
-# після зміни мови назву місця треба отримати ще раз, уже потрібною мовою
+// після зміни мови назву місця треба отримати ще раз, уже потрібною мовою
 async function refreshPlaceName() {
   if (!lastResult) return;
   const snapshot = lastResult;
@@ -706,7 +707,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("predict-btn").addEventListener("click", handleManualPredict);
   document.getElementById("explain-btn").addEventListener("click", handleExplain);
 
-  # сам toggleLang викликається в i18n.js, а тут оновлюємо те, що залежить від мови
+  // сам toggleLang викликається в i18n.js, а тут оновлюємо те, що залежить від мови
   document.getElementById("lang-toggle").addEventListener("click", async () => {
     hideError();
     renderResult();
