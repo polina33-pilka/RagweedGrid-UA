@@ -2,9 +2,8 @@ import math
 
 from common import point_in_polygon
 
-BORDER_TOLERANCE = 0.07  # щоб берегові й прикордонні точки не відсікались
+BORDER_TOLERANCE = 0.07  
 
-# кордон України у форматі [lon, lat], спрощений полігон
 UKRAINE_POLYGON = [
     [31.785998, 52.101678], [32.159412, 52.061267], [32.412058, 52.288695], [32.715761, 52.238465],
     [33.7527, 52.335075], [34.391731, 51.768882], [34.141978, 51.566413], [34.224816, 51.255993],
@@ -35,7 +34,6 @@ UKRAINE_POLYGON = [
 
 
 def _dist_to_segment(px, py, ax, ay, bx, by):
-    # відстань від точки до відрізка AB (k це проєкція точки на відрізок, обрізана до 0..1)
     dx, dy = bx - ax, by - ay
     len2 = dx * dx + dy * dy
     k = 0 if len2 == 0 else ((px - ax) * dx + (py - ay) * dy) / len2
@@ -46,7 +44,6 @@ def _dist_to_segment(px, py, ax, ay, bx, by):
 def in_ukraine(lon, lat, tolerance=BORDER_TOLERANCE):
     if point_in_polygon(lon, lat, UKRAINE_POLYGON):
         return True
-    # не всередині, але може бути зовсім поруч з кордоном
     pts = UKRAINE_POLYGON
     return any(
         _dist_to_segment(lon, lat, *pts[i - 1], *pts[i]) < tolerance
