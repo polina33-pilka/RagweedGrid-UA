@@ -1,0 +1,16 @@
+Файл: data/processed/training_data_cell.csv
+Рядків: 1562 (presence 781, фон 781)
+Просторових блоків: 32
+Увага: це одна вибірка фону (seed 42), тому числа трохи відрізняються від середнього по трьох вибірках у 14.
+
+Порівняння моделей (AUC-ROC, 5 фолдів):
+                      model       features  AUC random CV  AUC spatial CV  spatial std
+        Logistic Regression         клімат          0.586           0.582        0.046
+              Random Forest         клімат          0.666           0.594        0.055
+          Gradient Boosting         клімат          0.655           0.581        0.062
+        Logistic Regression клімат + земля          0.683           0.681        0.045
+              Random Forest клімат + земля          0.714           0.690        0.049
+          Gradient Boosting клімат + земля          0.705           0.682        0.046
+Random Forest (діагностика) тільки lat/lon          0.692           0.605          NaN
+
+Збережено: data/processed/model_comparison_training_data_cell.csv
