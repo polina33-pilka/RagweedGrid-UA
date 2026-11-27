@@ -11,14 +11,17 @@ FILES = {
     "cropland": "data/raw/WorldCover_cropland_30s.tif",
     "built": "data/raw/WorldCover_built_30s.tif",
 }
-OUT_PATH = "data/processed/landcover_01deg.csv"
+OUT_PATH = "data/processed/landcover_02deg.csv"
 
-LAT_MIN10, LAT_MAX10 = 440, 526
-LON_MIN10, LON_MAX10 = 220, 405
-N_LAT = LAT_MAX10 - LAT_MIN10 + 1
-N_LON = LON_MAX10 - LON_MIN10 + 1
+# центри комірок 0.2° у десятих частках градуса (парні числа), як у сітці карти v3
+LAT_MIN10, LAT_MAX10 = 440, 524
+LON_MIN10, LON_MAX10 = 220, 404
+STEP10 = 2
+N_LAT = (LAT_MAX10 - LAT_MIN10) // STEP10 + 1
+N_LON = (LON_MAX10 - LON_MIN10) // STEP10 + 1
 
-BLOCK = 12  # 0.1° це 12 пікселів по 30 кутових секунд
+BLOCK = 24  # 0.2° це 24 пікселі по 30 кутових секунд
+HALF = STEP10 / 20  # половина комірки в градусах (0.1)
 
 
 def aggregate(path, name):
@@ -29,8 +32,8 @@ def aggregate(path, name):
             sys.exit(f"{name}: розмір пікселя {px} x {py}, очікувався 1/120 градуса. "
                      "Перевірте, що це файл *_30s.tif.")
 
-        left = LON_MIN10 / 10 - 0.05
-        top = LAT_MAX10 / 10 + 0.05
+        left = LON_MIN10 / 10 - HALF
+        top = LAT_MAX10 / 10 + HALF
         col_f = (left - t.c) / px
         row_f = (t.f - top) / py
         col_off, row_off = round(col_f), round(row_f)
@@ -60,8 +63,8 @@ def aggregate(path, name):
         return np.nanmean(blocks, axis=(1, 3))
 
 
-lat10 = LAT_MAX10 - np.arange(N_LAT)
-lon10 = LON_MIN10 + np.arange(N_LON)
+lat10 = LAT_MAX10 - STEP10 * np.arange(N_LAT)
+lon10 = LON_MIN10 + STEP10 * np.arange(N_LON)
 lat_g, lon_g = np.meshgrid(lat10, lon10, indexing="ij")
 
 table = pd.DataFrame({"lat10": lat_g.ravel(), "lon10": lon_g.ravel()})
@@ -76,7 +79,7 @@ table["lon_grid"] = (table["lon10"] / 10).round(1)
 table = table.sort_values(["lat10", "lon10"]).reset_index(drop=True)
 table.to_csv(OUT_PATH, index=False)
 
-print(f"\nЗбережено: {OUT_PATH} ({len(table)} комірок)")
+print(f"\nЗбережено: {OUT_PATH} ({len(table)} комірок 0.2°)")
 print(table[["cropland", "built"]].describe().round(3))
 
 # контрольні місця: значення мають бути правдоподібними
@@ -87,9 +90,10 @@ checks = [
     ("Одеса", 46.5, 30.7),
     ("Херсонщина", 46.6, 32.6),
 ]
-print("\nКонтрольні точки:")
+print("\nКонтрольні точки (прив'язані до комірки 0.2°):")
 for label, lat, lon in checks:
-    row = table[(table["lat10"] == round(lat * 10)) & (table["lon10"] == round(lon * 10))]
+    la10, lo10 = int(np.rint(lat * 5) * 2), int(np.rint(lon * 5) * 2)
+    row = table[(table["lat10"] == la10) & (table["lon10"] == lo10)]
     if len(row):
         r = row.iloc[0]
-        print(f"  {label:12s} рілля {r['cropland']:.2f}  забудова {r['built']:.2f}")
+        print(f"  {label:12s} ({la10 / 10}, {lo10 / 10}) рілля {r['cropland']:.2f}  забудова {r['built']:.2f}")
