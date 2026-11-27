@@ -17,7 +17,7 @@ BATCH = 100
 DELAY = 1.0
 MAX_RETRIES = 6
 
-# лише комірки, які реально потрапили в наші таблиці
+# лише комірки, які дійсно потрапили в наші таблиці
 ONLY_NEEDED = True
 SOURCES = [
     "data/processed/ambrosia_with_grid.csv",
@@ -75,6 +75,7 @@ if ONLY_NEEDED:
     grid = grid[[k in needed for k in zip(grid["lat10"], grid["lon10"])]].reset_index(drop=True)
     print(f"Потрібних комірок: {len(grid)}")
 
+# підхоплюємо вже завантажене, щоб можна було докачати після збою чи ліміту
 if os.path.exists(OUT_PATH) and os.path.getsize(OUT_PATH) > 0:
     done = pd.read_csv(OUT_PATH)
     print(f"Вже оброблено: {len(done)}")
@@ -101,6 +102,7 @@ for start in range(0, len(todo), BATCH):
     part["elevation"] = pd.to_numeric(pd.Series(values, index=part.index), errors="coerce")
     results.append(part)
 
+    # зберігаємо після кожної пачки, щоб не втратити прогрес при обриві
     pd.concat(results, ignore_index=True).to_csv(OUT_PATH, index=False)
     print(f"Збережено {start + len(chunk)} / {len(todo)}")
     time.sleep(DELAY)
