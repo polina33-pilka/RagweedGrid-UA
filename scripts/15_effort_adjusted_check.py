@@ -8,6 +8,7 @@ from common import CLIMATE, LAND, make_rf, spatial_blocks
 N_BINS = 5
 
 d = pd.read_csv("data/processed/training_data_cell.csv")
+# логарифмуємо, щоб прибрати сильний перекіс через комірки з великою кількістю візитів
 d["log_visits"] = np.log1p(d["visits"])
 y = d["presence"]
 blocks = spatial_blocks(d)
@@ -35,6 +36,7 @@ for interval, g in d.groupby("bin", observed=True):
     n1 = int(g["presence"].sum())
     n0 = int((1 - g["presence"]).sum())
     auc = np.nan
+    # кількість пар presence*background як вага групи при усередненні AUC
     if n1 >= 10 and n0 >= 10:
         auc = roc_auc_score(g["presence"], p[g.index])
         weighted_sum += auc * n1 * n0
