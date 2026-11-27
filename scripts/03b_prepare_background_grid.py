@@ -17,6 +17,7 @@ ambrosia = pd.read_csv(AMBROSIA_PATH)
 presence_grid = pd.read_csv(PRESENCE_GRID_PATH)
 points = ambrosia[["decimalLongitude", "decimalLatitude"]].drop_duplicates().values
 
+# трохи розширюємо опуклу оболонку, щоб захопити прикордонні комірки
 hull = np.array(convex_hull(points))
 print(f"Вершин опуклої оболонки: {len(hull)}")
 hull = scale_polygon(hull, HULL_SCALE)
@@ -35,6 +36,7 @@ background = pd.DataFrame({
     "lat_grid": rand_lats[inside].round(1),
 }).drop_duplicates()
 
+# прибираємо комірки, де вже є точки присутності
 presence_pairs = set(zip(presence_grid["lat_grid"].round(1), presence_grid["lon_grid"].round(1)))
 no_ambrosia = [pair not in presence_pairs for pair in zip(background["lat_grid"], background["lon_grid"])]
 background = background[no_ambrosia]
