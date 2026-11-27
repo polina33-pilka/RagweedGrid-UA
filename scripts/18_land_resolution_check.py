@@ -13,7 +13,7 @@ LAND_FILES = {
 
 
 def snap(values, step):
-    """Центр комірки в десятих частках градуса: 0.1 -> будь-яке ціле, 0.2 -> парне."""
+    # центр комірки в десятих частках градуса: 0.1 -> будь-яке ціле, 0.2 -> парне
     values = np.asarray(values, dtype=float)
     if step == 0.1:
         return np.rint(values * 10).astype(int)
@@ -34,6 +34,7 @@ for step, land_path in LAND_FILES.items():
     presence = presence.merge(land, on=["lat10", "lon10"], how="inner")
     presence["presence"] = 1
 
+    # виключаємо комірки присутності ще до вибірки фону, щоб уникнути витоку міток
     plants["lat10"] = snap(plants["decimalLatitude"], step)
     plants["lon10"] = snap(plants["decimalLongitude"], step)
     visits = plants.groupby(["lat10", "lon10"]).size().rename("visits").reset_index()
