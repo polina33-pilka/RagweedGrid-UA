@@ -21,6 +21,7 @@ print(f"Presence-комірок з кліматом: {len(presence)}")
 plants = load_plants(PLANTS_PATH)
 print(f"Записів рослин після фільтрів: {len(plants)}")
 
+# об'єднуємо обидві таблиці кандидатів, бо в кожній можуть бути свої точки
 candidates = pd.concat([
     pd.read_csv("data/processed/background_climate_data.csv"),
     pd.read_csv("data/processed/full_grid_climate_data.csv"),
@@ -34,7 +35,7 @@ no_ambrosia = [pair not in presence_pairs for pair in zip(candidates["lat_grid"]
 candidates = candidates[no_ambrosia].copy()
 print(f"Кандидатів без комірок з амброзією: {len(candidates)}")
 
-# вага комірки: скільки записів рослин у радіусі RADIUS_KM
+# вага комірки: скільки записів рослин у радіусі RADIUS_KM (target-group background, аби врахувати нерівномірність збору даних)
 tree = cKDTree(to_km(plants["decimalLatitude"].values, plants["decimalLongitude"].values))
 candidates["weight"] = tree.query_ball_point(
     to_km(candidates["lat_grid"].values, candidates["lon_grid"].values),
@@ -47,6 +48,7 @@ n_absence = min(len(presence), len(usable))
 if n_absence < len(presence):
     print(f"Для pseudo-absence доступно лише {n_absence} точок")
 
+# вибираємо без повторів, але з імовірністю пропорційною вазі
 p = usable["weight"].values / usable["weight"].values.sum()
 chosen = rng.choice(len(usable), size=n_absence, replace=False, p=p)
 background = usable.iloc[chosen][["lat_grid", "lon_grid"] + CLIMATE].copy()
