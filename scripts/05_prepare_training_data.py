@@ -16,6 +16,7 @@ background_climate = pd.read_csv(BACKGROUND_CLIMATE_PATH)
 print(f"Записів амброзії: {len(ambrosia)}")
 print(f"Кліматичних точок (presence): {len(climate)}, (фон): {len(background_climate)}")
 
+# зводимо спостереження до унікальних комірок, щоб кожна клітинка сітки важила однаково
 presence_cells = ambrosia[["lat_grid", "lon_grid"]].drop_duplicates().copy()
 presence_cells["presence"] = 1
 print(f"Унікальних presence-комірок: {len(presence_cells)}")
@@ -27,11 +28,13 @@ missing = len(presence_cells) - len(presence_full)
 if missing > 0:
     print(f"УВАГА: {missing} presence-комірок без кліматичних даних, їх пропущено.")
 
+# балансуємо класи 1:1 за меншою вибіркою
 n_absence = min(len(presence_full), len(background_climate))
 pseudo_absence = background_climate.sample(n=n_absence, random_state=RANDOM_SEED).copy()
 pseudo_absence["presence"] = 0
 print(f"Обрано pseudo-absence комірок: {len(pseudo_absence)}")
 
+# перемішуємо рядки, щоб класи не йшли суцільними блоками
 training_data = pd.concat([presence_full, pseudo_absence], ignore_index=True)
 training_data = training_data.sample(frac=1, random_state=RANDOM_SEED).reset_index(drop=True)
 
