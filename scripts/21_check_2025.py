@@ -24,7 +24,7 @@ FEATURES = meta["features"]
 T_HIGH = meta["threshold_high"]
 model = joblib.load(MODEL_PATH)
 
-# 1. записи амброзії за 2025 рік, ті самі фільтри, що в 02_clean_data.py
+# записи амброзії за 2025 рік, ті самі фільтри, що в 02_clean_data.py
 df = pd.read_csv(RAW_PATH, sep="\t", low_memory=False)
 df = df[df[["year", "month", "day"]].notna().all(axis=1)]
 df = df[df[["decimalLatitude", "decimalLongitude"]].notna().all(axis=1)]
@@ -43,7 +43,7 @@ df["lat10"] = np.rint(df["decimalLatitude"] * 10).astype(int)
 df["lon10"] = np.rint(df["decimalLongitude"] * 10).astype(int)
 cells_2025 = set(zip(df["lat10"], df["lon10"]))
 
-# 2. комірки, де амброзію бачили в 2015-2024, і фон, який модель уже бачила
+# комірки, де амброзію бачили в 2015-2024, і фон, який модель уже бачила
 amb = pd.read_csv("data/processed/ambrosia_with_grid.csv")
 train_keys = set(zip(np.rint(amb["lat_grid"] * 10).astype(int), np.rint(amb["lon_grid"] * 10).astype(int)))
 td = pd.read_csv(TRAIN_PATH)
@@ -54,7 +54,7 @@ print(f"Комірок 0.1° з амброзією {TEST_YEAR}: {len(cells_2025)
 print(f"  з них уже були в 2015-2024: {len(cells_2025 & train_keys)}")
 print(f"  нових: {len(new_keys)}")
 
-# 3. ознаки: так само, як у 14_cell_level_background.py
+# ознаки: так само, як у 14_cell_level_background.py
 land = pd.read_csv("data/processed/landcover_01deg.csv")[["lat10", "lon10"] + LAND]
 reference = pd.read_csv(CLIMATE_PATH)
 reference = reference.dropna(subset=CLIMATE).drop_duplicates(["lat_grid", "lon_grid"]).reset_index(drop=True)
@@ -68,6 +68,7 @@ def add_features(cells, label):
     climate = reference.iloc[idx][CLIMATE].reset_index(drop=True)
     cells = pd.concat([cells.reset_index(drop=True), climate], axis=1)
     cells["clim_dist_km"] = dist
+    # відкидаємо точки, занадто далекі від вузлів сітки, щоб не підтягувати чужий клімат
     cells = cells[cells["clim_dist_km"] <= MAX_CLIMATE_DIST_KM]
     cells = cells.dropna(subset=LAND + ["temp_mean"]).drop(columns="clim_dist_km")
     print(f"{label}: {n_before} -> {len(cells)}")
@@ -84,12 +85,13 @@ pos = add_features(pos, "Нові presence-комірки з ознаками")
 pos = pos.merge(visits, on=["lat10", "lon10"], how="left").fillna({"visits": 0})
 pos["presence"] = 1
 
+# прибираємо комірки з історії, 2025 року та старого фону, щоб тест лишався чистим
 exclude = train_keys | cells_2025 | train_bg
 pool = visits[[k not in exclude for k in zip(visits["lat10"], visits["lon10"])]].copy()
 pool = add_features(pool, "Пул фону (без комірок, які модель уже бачила)")
 print(f"Нових presence: {len(pos)}, пул фону: {len(pool)}")
 
-# 4. оцінка збереженої моделі на нових комірках
+# оцінка збереженої моделі на нових комірках
 rows = []
 for seed in SEEDS:
     rng = np.random.default_rng(seed)
