@@ -20,6 +20,7 @@ ambrosia = pd.read_csv(AMBROSIA_PATH)
 points = ambrosia[["decimalLongitude", "decimalLatitude"]].drop_duplicates().values
 hull = scale_polygon(np.array(convex_hull(points)), HULL_SCALE)
 
+# відсікаємо точки далеко за межами ареалу знахідок
 in_area = [point_in_polygon(lon, lat, hull) for lat, lon in zip(grid["lat_grid"], grid["lon_grid"])]
 grid = grid[in_area].reset_index(drop=True)
 print(f"Точок усередині області спостережень: {len(grid)}")
