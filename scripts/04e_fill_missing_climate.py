@@ -13,10 +13,12 @@ MAX_KM = 60.0    # далі за цю відстань точку не запо�
 
 
 def idw(tree, values, query_xy, k, skip_self=False):
-    """Зважене за 1/d^2 середнє k найближчих точок."""
+    # зважене за 1/d^2 середнє k найближчих точок
     dist, idx = tree.query(query_xy, k=k + 1 if skip_self else k)
+    # при leave-one-out першим сусідом завжди буде сама точка з нульовою відстанню
     if skip_self:
         dist, idx = dist[:, 1:], idx[:, 1:]
+    # нижня межа 1.0 км, щоб не ділити на нуль при збігу координат
     w = np.where(dist <= MAX_KM, 1.0 / np.maximum(dist, 1.0) ** 2, 0.0)
     total = w.sum(axis=1)
     out = {}
@@ -51,6 +53,7 @@ if len(missing):
     fill = idw(tree, got, to_km(missing["lat_grid"].values, missing["lon_grid"].values), K)
     for col in CLIMATE:
         missing[col] = fill[col]
+    # точки далі за MAX_KM залишаються з NaN, тому випадають після dropna
     missing = missing.dropna(subset=CLIMATE)
     missing["interpolated"] = True
     print(f"\nЗаповнено інтерполяцією: {len(missing)}")
