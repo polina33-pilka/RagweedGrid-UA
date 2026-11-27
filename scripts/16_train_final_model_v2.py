@@ -23,6 +23,7 @@ cv_auc = cross_val_score(make_rf(n_estimators=500), X, y, cv=GroupKFold(n_splits
                          groups=blocks, scoring="roc_auc")
 print(f"AUC по регіонах (5 фолдів): {cv_auc.mean():.3f} +/- {cv_auc.std():.3f}")
 
+# навчаємо фінальну модель на всій вибірці після перевірки на просторових фолдах
 model = make_rf(n_estimators=500).fit(X, y)
 joblib.dump(model, OUT_DIR + "ambrosia_risk_model_v2.joblib")
 importance = pd.Series(model.feature_importances_, index=FEATURES).sort_values(ascending=False)
@@ -30,6 +31,7 @@ print("\nВажливість ознак:")
 print(importance.round(3).to_string())
 
 grid = pd.read_csv(OUT_DIR + "full_grid_climate_data_v3.csv")
+# rint замість int(), щоб уникнути зсуву через дрібні похибки float
 grid["lat10"] = np.rint(grid["lat_grid"] * 10).astype(int)
 grid["lon10"] = np.rint(grid["lon_grid"] * 10).astype(int)
 land = pd.read_csv(OUT_DIR + "landcover_01deg.csv")[["lat10", "lon10"] + LAND]
@@ -41,6 +43,7 @@ grid = grid[inside].reset_index(drop=True)
 print(f"\nТочок карти: {n_before} -> {len(grid)} (без даних про землю або поза Україною)")
 
 grid["risk"] = model.predict_proba(grid[FEATURES])[:, 1]
+# пороги категорій рахуємо від розподілу значень на самій карті
 t_medium = float(grid["risk"].quantile(Q_MEDIUM))
 t_high = float(grid["risk"].quantile(Q_HIGH))
 
@@ -70,22 +73,9 @@ with open(OUT_DIR + "risk_map_v2.geojson", "w", encoding="utf-8") as f:
 # довідник землі для бекенду: за ним сайт знаходить частки для будь-якої точки
 land.dropna().round({"cropland": 3, "built": 3}).to_csv(OUT_DIR + "landcover_lookup.csv", index=False)
 
+# фіксуємо параметри та версію sklearn, щоб бекенд коректно завантажив і інтерпретував модель
 meta = {
     "features": FEATURES,
     "threshold_medium": t_medium,
     "threshold_high": t_high,
-    "cv_auc_regions": round(float(cv_auc.mean()), 3),
-    "cv_auc_regions_std": round(float(cv_auc.std()), 3),
-    "season_months": [SEASON_FIRST_MONTH, SEASON_LAST_MONTH],
-    "grid_step_deg": 0.2,
-    "climate_file": "full_grid_climate_data_v3.csv",
-    "interpolated_share": 0.0,
-    "sklearn_version": sklearn.__version__,
-}
-with open(OUT_DIR + "model_v2_meta.json", "w", encoding="utf-8") as f:
-    json.dump(meta, f, ensure_ascii=False, indent=2)
-
-print(f"\nЗбережено в {OUT_DIR}: ambrosia_risk_model_v2.joblib, risk_map_v2.geojson, "
-      "landcover_lookup.csv, model_v2_meta.json")
-print("Версія scikit-learn:", sklearn.__version__)
-
+    "cv_auc_regions": round
