@@ -24,11 +24,13 @@ for var, pre in VARS:
     for name, (a, b) in SEASONS.items():
         months = range(a, b + 1)
         w = sum(DAYS[m] for m in months)
+        # зважуємо по кількості днів у місяці, щоб не спотворювати середнє через різну довжину місяців
         calc = sum(sub[f"{pre}{m:02d}"] * DAYS[m] for m in months) / w
         diff = (calc - sub[var]).abs().max()
         mark = ""
+        # перевіряємо чи файл зібраний саме для базового сезону 4-10, а не зі старого прогону
         if name == "4-10":
-            mark = "  <- має бути ~0" 
+            mark = "  <- має бути ~0"
             if diff > TOL:
                 ok = False
         print(f"  сезон {name}: {diff:.4f}{mark}")
