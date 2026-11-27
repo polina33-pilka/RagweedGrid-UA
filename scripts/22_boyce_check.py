@@ -19,6 +19,7 @@ def boyce_continuous(pred_all, pred_pres, n_windows=100, width=0.1):
     if w <= 0 or len(pred_pres) < 5:
         return np.nan
     centers, ratios = [], []
+    # рухоме вікно по діапазону прогнозів: порівнюємо частку знахідок і частку всієї площі
     for s in np.linspace(lo, hi - w, n_windows):
         e = np.mean((pred_all >= s) & (pred_all <= s + w))
         if e == 0:
@@ -59,6 +60,7 @@ for k, (tr, te) in enumerate(GroupKFold(n_splits=5).split(X, y, groups=blocks_tr
     model = make_rf(n_estimators=500).fit(X.iloc[tr], y[tr])
     p_te = model.predict_proba(X.iloc[te])[:, 1]
     pres = p_te[y[te] == 1]
+    # беремо лише точки карти з тестових блоків поточного фолда, без витоку з тренувальних
     mask = np.isin(b_grid, list(set(b_train[te])))
     p_test_blocks = model.predict_proba(grid.loc[mask, FEATURES])[:, 1]
     p_all_map = model.predict_proba(grid[FEATURES])[:, 1]
