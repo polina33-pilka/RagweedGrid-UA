@@ -1,0 +1,18 @@
+AUC по регіонах (5 фолдів): 0.696 +/- 0.033
+
+Важливість ознак:
+built            0.332
+precip_sum       0.183
+temp_mean        0.179
+humidity_mean    0.170
+cropland         0.136
+
+Точок карти: 1952 -> 1952 (без даних про землю або поза Україною)
+Категорії на карті:
+risk_category
+low       976
+medium    585
+high      391
+
+Збережено в data/processed/: ambrosia_risk_model_v2.joblib, risk_map_v2.geojson, landcover_lookup.csv, model_v2_meta.json
+Версія scikit-learn: 1.5.1
