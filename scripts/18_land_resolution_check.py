@@ -1,49 +1,68 @@
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import GroupKFold
+from sklearn.model_selection import GroupKFold, cross_val_score
 
-from common import BLOCK_SIZE, spatial_blocks
-from ukraine_border import UKRAINE_POLYGON
+from common import LAND, SEED, load_plants, make_rf, spatial_blocks
 
-d = pd.read_csv("data/processed/training_data_cell.csv")
-blocks = spatial_blocks(d)
+PLANTS_PATH = "data/raw/plants_ukraine_gbif.csv"
+SEEDS = [SEED, SEED + 1, SEED + 2]
+LAND_FILES = {
+    0.1: "data/processed/landcover_01deg.csv",
+    0.2: "data/processed/landcover_02deg.csv",  # створює 12b
+}
 
-# записуємо номер тестового фолда (1..5) для кожної точки
-fold = np.zeros(len(d), dtype=int)
-for i, (_, test_idx) in enumerate(GroupKFold(n_splits=5).split(d, d["presence"], blocks), start=1):
-    fold[test_idx] = i
-d["fold"] = fold
 
-print("Рядків:", len(d), "| блоків 2°x2°:", blocks.nunique())
-print("Блоків у фолді:", blocks.groupby(d["fold"]).nunique().to_dict())
-print("Точок у фолді:", d["fold"].value_counts().sort_index().to_dict())
+def snap(values, step):
+    # центр комірки в десятих частках градуса: 0.1 -> будь-яке ціле, 0.2 -> парне
+    values = np.asarray(values, dtype=float)
+    if step == 0.1:
+        return np.rint(values * 10).astype(int)
+    return (np.rint(values * 5) * 2).astype(int)
 
-colors = ["#1b4d3e", "#d97706", "#3b82a6", "#9b5de5", "#c2410c"]
-fig, ax = plt.subplots(figsize=(10, 6.5), dpi=200)
 
-poly = np.array(UKRAINE_POLYGON)
-ax.plot(poly[:, 0], poly[:, 1], color="#444444", linewidth=1.3, zorder=3)
+ambrosia = pd.read_csv("data/processed/ambrosia_with_grid.csv")
+plants = load_plants(PLANTS_PATH)
 
-# сітка просторових блоків за розміром з common
-for v in np.arange(20, 42, BLOCK_SIZE):
-    ax.axvline(v, color="#777777", linewidth=1.2, zorder=1)
-for v in np.arange(44, 54, BLOCK_SIZE):
-    ax.axhline(v, color="#777777", linewidth=1.2, zorder=1)
+for step, land_path in LAND_FILES.items():
+    land = pd.read_csv(land_path)[["lat10", "lon10"] + LAND].dropna()
 
-for k in range(1, 6):
-    s = d[d["fold"] == k]
-    ax.scatter(s["lon_grid"], s["lat_grid"], s=16, color=colors[k - 1],
-               label=f"Фолд {k}", zorder=2, alpha=0.9)
+    presence = pd.DataFrame({
+        "lat10": snap(ambrosia["decimalLatitude"], step),
+        "lon10": snap(ambrosia["decimalLongitude"], step),
+    }).drop_duplicates()
+    presence_keys = set(zip(presence["lat10"], presence["lon10"]))
+    presence = presence.merge(land, on=["lat10", "lon10"], how="inner")
+    presence["presence"] = 1
 
-ax.set_xlim(21.5, 40.5)
-ax.set_ylim(44, 52.6)
-# коригуємо співвідношення осей на широті ~48.5°, щоб карта не виглядала розтягнутою
-ax.set_aspect(1 / np.cos(np.radians(48.5)))
-ax.legend(title="Тестовий фолд", loc="lower right", fontsize=9, frameon=True)
-ax.axis("off")
-plt.tight_layout()
-plt.savefig("outputs_after/spatial_cv_blocks.png", transparent=False)
-print("Збережено outputs_after/spatial_cv_blocks.png")
+    # виключаємо комірки присутності ще до вибірки фону, щоб уникнути витоку міток
+    plants["lat10"] = snap(plants["decimalLatitude"], step)
+    plants["lon10"] = snap(plants["decimalLongitude"], step)
+    visits = plants.groupby(["lat10", "lon10"]).size().rename("visits").reset_index()
+    not_ambrosia = [k not in presence_keys for k in zip(visits["lat10"], visits["lon10"])]
+    candidates = visits[not_ambrosia].merge(land, on=["lat10", "lon10"], how="inner")
+
+    print(f"\n=== Комірка {step}° ===")
+    print(f"Presence: {len(presence)}, кандидатів на фон: {len(candidates)}")
+
+    scores = []
+    for seed in SEEDS:
+        rng = np.random.default_rng(seed)
+        p = candidates["visits"].values / candidates["visits"].values.sum()
+        chosen = rng.choice(len(candidates), size=min(len(presence), len(candidates)),
+                            replace=False, p=p)
+        background = candidates.iloc[chosen].copy()
+        background["presence"] = 0
+
+        data = pd.concat([presence, background], ignore_index=True)
+        data["lat_grid"] = data["lat10"] / 10
+        data["lon_grid"] = data["lon10"] / 10
+
+        auc = cross_val_score(make_rf(seed), data[LAND], data["presence"],
+                              cv=GroupKFold(n_splits=5), groups=spatial_blocks(data),
+                              scoring="roc_auc").mean()
+        scores.append(auc)
+
+    print(f"Лише земля, AUC по регіонах: {np.mean(scores):.3f} +/- {np.std(scores, ddof=1):.3f} "
+          f"(по {len(SEEDS)} вибірках фону)")
+    print(f"Середня built: presence {presence['built'].mean():.3f}, "
+          f"кандидати {candidates['built'].mean():.3f}")
